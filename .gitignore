@@ -1,0 +1,36 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+
+# build outputs
+.svelte-kit/
+dist/
+build/
+
+# cloudflare
+.wrangler/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# misc
+*.tgz
+package-lock.json.bak
+.cursorignore
+.claudeignore
