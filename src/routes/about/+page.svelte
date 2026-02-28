@@ -105,7 +105,7 @@
 					decoding="async"
 				/>
 				<figcaption class="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
-					Playing guitar keeps me creative and patient.
+					My favorite expression of creativity.
 				</figcaption>
 			</figure>
 
