@@ -8,8 +8,8 @@ export const experience: Experience[] = [
 		end: 'Present',
 		bullets: [
 			'Delivered capabilities on a high-throughput messaging orchestration platform, processing 100s of millions of messages per day.',
-			'Architected and led delivery of the greenfield Unified Entry Layer (UEL) platform from concept to production, establishing the decoupled messaging foundation used by the Capital One marketing data platform.',
-			'Architected and led delivery of the Marketing Orchestration API platform, enabling runtime configuration retrieval, message replay, Glue job management, and more to enable operational excellence for the marketing data platform.',
+			'Architected and led delivery of the greenfield Campaign Routing Entry Layer platform from concept to production, establishing the decoupled messaging foundation used by the Capital One marketing data platform.',
+			'Architected and led delivery of the Marketing Campaign Support API platform, enabling runtime configuration retrieval, message replay, Glue job management, and more to enable operational excellence for the marketing data platform.',
 		],
 		tags: ['Java', 'Spring Boot', 'Kafka', 'SNS/SQS', 'Lambda', 'DynamoDB', 'Python', 'Microservices', 'API', 'Messaging', 'Orchestration']
 	},

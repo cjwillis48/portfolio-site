@@ -24,3 +24,7 @@ export interface EngagementType {
 	detail: string;
 	badge: string;
 }
+
+export interface ChatbotConfig {
+	modelSlug: string;
+}

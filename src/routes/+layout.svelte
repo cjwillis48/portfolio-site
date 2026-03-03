@@ -2,14 +2,18 @@
 	import '../app.css';
 	import Nav from '$lib/components/Nav.svelte';
 	import Footer from '$lib/components/Footer.svelte';
+	import Chat from '$lib/components/Chat.svelte';
 
 	let { children } = $props();
 </script>
 
-<div class="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<div
+	class="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+>
 	<Nav />
 	<main class="flex-1 pt-16">
 		{@render children()}
 	</main>
 	<Footer />
+	<Chat />
 </div>
