@@ -8,8 +8,8 @@ export interface Project {
 export interface Experience {
 	company: string;
 	role: string;
-	start: string; // e.g. "Jan 2021"
-	end: string | 'Present';
+	start: string; // e.g. "2021-01"
+	end: string | 'Present'; // e.g. "2024-06" or "Present"
 	bullets: string[];
 	tags: string[];
 }

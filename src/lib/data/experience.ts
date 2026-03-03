@@ -4,19 +4,31 @@ export const experience: Experience[] = [
 	{
 		company: 'Capital One',
 		role: 'Senior Software Engineer',
-		start: 'December 2022',
+		start: '2022-12',
 		end: 'Present',
 		bullets: [
 			'Delivered capabilities on a high-throughput messaging orchestration platform, processing 100s of millions of messages per day.',
 			'Architected and led delivery of the greenfield Campaign Routing Entry Layer platform from concept to production, establishing the decoupled messaging foundation used by the Capital One marketing data platform.',
-			'Architected and led delivery of the Marketing Campaign Support API platform, enabling runtime configuration retrieval, message replay, Glue job management, and more to enable operational excellence for the marketing data platform.',
+			'Architected and led delivery of the Marketing Campaign Support API platform, enabling runtime configuration retrieval, message replay, Glue job management, and more to enable operational excellence for the marketing data platform.'
 		],
-		tags: ['Java', 'Spring Boot', 'Kafka', 'SNS/SQS', 'Lambda', 'DynamoDB', 'Python', 'Microservices', 'API', 'Messaging', 'Orchestration']
+		tags: [
+			'Java',
+			'Spring Boot',
+			'Kafka',
+			'SNS/SQS',
+			'Lambda',
+			'DynamoDB',
+			'Python',
+			'Microservices',
+			'API',
+			'Messaging',
+			'Orchestration'
+		]
 	},
 	{
 		company: 'Choice Recovery Path',
 		role: 'Principal Engineer (Contract)',
-		start: 'December 2023',
+		start: '2023-12',
 		end: 'Present',
 		bullets: [
 			'Inherited a legacy PHP application and migrated it to modern PHP 8.4, Laravel 12, and MySQL 8.0.',
@@ -28,8 +40,8 @@ export const experience: Experience[] = [
 	{
 		company: 'UPS',
 		role: 'Application Architect',
-		start: 'April 2022',
-		end: 'November 2022',
+		start: '2022-04',
+		end: '2022-11',
 		bullets: [
 			'Helped shape the UPS enterprise data strategy by defining authoritative data sources across key business domains.',
 			'Partnered with infrastructure and security architects to design a secure GCP footprint that could be treated as an intranet data center, leveraging Interconnect, Private Service Connect, and VPC networking.',
@@ -40,8 +52,8 @@ export const experience: Experience[] = [
 	{
 		company: 'UPS',
 		role: 'Lead Application Developer',
-		start: 'February 2020',
-		end: 'April 2022',
+		start: '2020-02',
+		end: '2022-04',
 		bullets: [
 			'Led a development team building a suite of integration applications for the UPS airline, providing both on-demand and event-driven integrations for internal and vendor systems.',
 			'Designed and delivered a mission-critical stateless messaging broker for the airline, composed of 20+ microservices running as Docker containers orchestrated by Kubernetes in Red Hat OpenShift.',
@@ -63,23 +75,31 @@ export const experience: Experience[] = [
 	{
 		company: 'UPS',
 		role: 'Senior Application Developer',
-		start: 'January 2019',
-		end: 'February 2020',
+		start: '2019-01',
+		end: '2020-02',
 		bullets: [
 			'Served as full-stack engineer, DevOps build engineer, and informal team lead on a suite of applications reducing jet fuel consumption for the UPS airline.',
 			'Contributed to products that save an estimated $20M annually in fuel costs while materially reducing jet-fuel emissions.',
 			'Designed microservice architectures for new greenfield applications in an Agile Scrum environment.'
 		],
-		tags: ['Java', 'Spring Boot', 'Angular', 'Jenkins', 'Microservices', 'Red Hat OpenShift', 'DevOps']
+		tags: [
+			'Java',
+			'Spring Boot',
+			'Angular',
+			'Jenkins',
+			'Microservices',
+			'Red Hat OpenShift',
+			'DevOps'
+		]
 	},
 	{
 		company: 'UPS',
 		role: 'Intermediate Application Developer',
-		start: 'October 2016',
-		end: 'January 2019',
+		start: '2016-10',
+		end: '2019-01',
 		bullets: [
 			'Modernized aircraft parts inventory management by replatforming a warehouse scanning system from Citrix to native handheld devices, improving reliability for daily maintenance operations.',
-			'Identified and eliminated a business-critical risk by migrating a parts-movement tracking workflow from an ad hoc Outlook folder process into a purpose-built web application within the team\'s owned suite of tools.',
+			"Identified and eliminated a business-critical risk by migrating a parts-movement tracking workflow from an ad hoc Outlook folder process into a purpose-built web application within the team's owned suite of tools.",
 			'Worked closely with operations stakeholders to refine requirements and streamline maintenance workflows.'
 		],
 		tags: ['Java', 'Spring', '.NET', '.NET MVC', 'C#', 'SQL Server']
@@ -87,8 +107,8 @@ export const experience: Experience[] = [
 	{
 		company: 'UPS',
 		role: 'Application Developer',
-		start: 'May 2015',
-		end: 'October 2016',
+		start: '2015-05',
+		end: '2016-10',
 		bullets: [
 			'Developed integrations and message flows on a messaging broker for the UPS ground transportation division.',
 			'Implemented reliable, fault-tolerant messaging patterns to support high-volume ground operations.',

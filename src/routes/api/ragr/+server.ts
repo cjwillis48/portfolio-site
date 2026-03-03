@@ -23,6 +23,23 @@ interface ChatHistoryMessage {
 	content: string;
 }
 
+function createRequestId(): string {
+	try {
+		return crypto.randomUUID();
+	} catch {
+		return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+	}
+}
+
+function logRagrError(message: string, context: Record<string, unknown>, error?: unknown): void {
+	if (error) {
+		console.error(`[ragr] ${message}`, context, error);
+		return;
+	}
+
+	console.error(`[ragr] ${message}`, context);
+}
+
 function readString(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : '';
 }
@@ -110,9 +127,15 @@ function readHistory(value: unknown): ChatHistoryMessage[] {
 }
 
 export const GET: RequestHandler = async ({ platform }) => {
+	const requestId = createRequestId();
 	const { baseUrl, slug } = readChatConfig(platform);
 
 	if (!baseUrl || !isValidSlug(slug)) {
+		logRagrError('Invalid chat config for model info lookup.', {
+			requestId,
+			baseUrlConfigured: Boolean(baseUrl),
+			slug
+		});
 		return json({ available: false }, { status: 200 });
 	}
 
@@ -121,6 +144,13 @@ export const GET: RequestHandler = async ({ platform }) => {
 	try {
 		const infoResponse = await fetch(infoUrl, { method: 'GET' });
 		if (!infoResponse.ok) {
+			const responseBody = await infoResponse.text();
+			logRagrError('Model info endpoint returned non-OK status.', {
+				requestId,
+				infoUrl,
+				status: infoResponse.status,
+				responsePreview: responseBody.slice(0, 400)
+			});
 			return json({ available: false }, { status: 200 });
 		}
 
@@ -132,21 +162,31 @@ export const GET: RequestHandler = async ({ platform }) => {
 		const model = readModelInfo(infoPayload, slug);
 		return json({ available: true, model }, { status: 200 });
 	} catch (error) {
-		console.error('RAGr model info fetch failed:', infoUrl, error);
+		logRagrError('Model info fetch failed.', { requestId, infoUrl }, error);
 		return json({ available: false }, { status: 200 });
 	}
 };
 
 export const POST: RequestHandler = async ({ request, platform }) => {
+	const requestId = createRequestId();
 	let payload: unknown;
 
 	try {
 		payload = await request.json();
-	} catch {
+	} catch (error) {
+		logRagrError(
+			'Failed to parse chat JSON payload.',
+			{
+				requestId,
+				contentType: request.headers.get('content-type') ?? 'unknown'
+			},
+			error
+		);
 		return json({ success: false, error: 'Invalid JSON payload.' }, { status: 400 });
 	}
 
 	if (!payload || typeof payload !== 'object') {
+		logRagrError('Invalid chat payload shape.', { requestId, payloadType: typeof payload });
 		return json({ success: false, error: 'Invalid request payload.' }, { status: 400 });
 	}
 
@@ -155,6 +195,12 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const history = readHistory(record.history);
 
 	if (!isValidQuestion(question)) {
+		logRagrError('Invalid question length.', {
+			requestId,
+			questionLength: question.length,
+			min: MIN_QUESTION_LENGTH,
+			max: MAX_QUESTION_LENGTH
+		});
 		return json(
 			{
 				success: false,
@@ -167,12 +213,12 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const { baseUrl, slug } = readChatConfig(platform);
 
 	if (!baseUrl) {
-		console.error('RAGr chat is missing RAGR_BASE_URL.');
+		logRagrError('Missing RAGR_BASE_URL configuration.', { requestId, slug });
 		return json({ success: false, error: 'Chat service is not configured.' }, { status: 500 });
 	}
 
 	if (!isValidSlug(slug)) {
-		console.error('RAGr chat has invalid model slug configuration.');
+		logRagrError('Invalid model slug configuration.', { requestId, slug });
 		return json(
 			{ success: false, error: 'Chat service has invalid model settings.' },
 			{ status: 500 }
@@ -195,7 +241,17 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			})
 		});
 	} catch (error) {
-		console.error('RAGr chat upstream request failed:', upstreamUrl, error);
+		logRagrError(
+			'Chat upstream request failed.',
+			{
+				requestId,
+				upstreamUrl,
+				slug,
+				questionLength: question.length,
+				historyCount: history.length
+			},
+			error
+		);
 		return json(
 			{ success: false, error: 'Unable to connect to the chat service. Please try again.' },
 			{ status: 502 }
@@ -205,11 +261,24 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	if (!upstreamResponse.ok) {
 		const mapped = mapUpstreamError(upstreamResponse.status);
 		const responseBody = await upstreamResponse.text();
-		console.error('RAGr chat upstream error:', upstreamResponse.status, responseBody);
+		logRagrError('Chat upstream returned non-OK status.', {
+			requestId,
+			upstreamUrl,
+			slug,
+			status: upstreamResponse.status,
+			questionLength: question.length,
+			historyCount: history.length,
+			responsePreview: responseBody.slice(0, 400)
+		});
 		return json({ success: false, error: mapped.error }, { status: mapped.status });
 	}
 
 	if (!upstreamResponse.body) {
+		logRagrError('Chat upstream returned empty response body.', {
+			requestId,
+			upstreamUrl,
+			slug
+		});
 		return json(
 			{ success: false, error: 'Chat service did not return a stream.' },
 			{ status: 502 }

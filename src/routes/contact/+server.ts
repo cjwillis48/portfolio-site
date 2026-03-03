@@ -8,7 +8,26 @@ const MAX_EMAIL_LENGTH = 254;
 const MAX_MESSAGE_LENGTH = 5000;
 const MIN_FORM_FILL_MS = 3000;
 
-function isValidContactPayload(payload: unknown): payload is { name: string; email: string; message: string } {
+function createRequestId(): string {
+	try {
+		return crypto.randomUUID();
+	} catch {
+		return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+	}
+}
+
+function logContactError(message: string, context: Record<string, unknown>, error?: unknown): void {
+	if (error) {
+		console.error(`[contact] ${message}`, context, error);
+		return;
+	}
+
+	console.error(`[contact] ${message}`, context);
+}
+
+function isValidContactPayload(
+	payload: unknown
+): payload is { name: string; email: string; message: string } {
 	if (!payload || typeof payload !== 'object') {
 		return false;
 	}
@@ -30,16 +49,32 @@ function isValidContactPayload(payload: unknown): payload is { name: string; ema
 }
 
 export const POST: RequestHandler = async ({ request, platform }) => {
+	const requestId = createRequestId();
 	let payload: unknown;
 
 	try {
 		payload = await request.json();
-	} catch {
+	} catch (error) {
+		logContactError(
+			'Failed to parse contact JSON payload.',
+			{
+				requestId,
+				contentType: request.headers.get('content-type') ?? 'unknown'
+			},
+			error
+		);
 		return json({ success: false, error: 'Invalid JSON payload.' }, { status: 400 });
 	}
 
 	if (!isValidContactPayload(payload)) {
-		return json({ success: false, error: 'Please provide a valid name, email, and message.' }, { status: 400 });
+		logContactError('Invalid contact payload received.', {
+			requestId,
+			payloadType: typeof payload
+		});
+		return json(
+			{ success: false, error: 'Please provide a valid name, email, and message.' },
+			{ status: 400 }
+		);
 	}
 
 	const record = payload as Record<string, unknown>;
@@ -48,10 +83,16 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	// Silently accept obvious bots so they don't learn validation details.
 	if (website.length > 0) {
+		logContactError('Contact honeypot triggered; accepting silently.', { requestId });
 		return json({ success: true });
 	}
 
 	if (!Number.isFinite(formStartedAt) || Date.now() - formStartedAt < MIN_FORM_FILL_MS) {
+		logContactError('Contact request rejected by timing validation.', {
+			requestId,
+			formStartedAt,
+			elapsedMs: Number.isFinite(formStartedAt) ? Date.now() - formStartedAt : null
+		});
 		return json({ success: false, error: 'Please take a moment and try again.' }, { status: 400 });
 	}
 
@@ -61,38 +102,67 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	const brevoApiKey = platform?.env?.BREVO_API_KEY ?? env.BREVO_API_KEY;
 	const contactFromEmail = platform?.env?.CONTACT_FROM_EMAIL ?? env.CONTACT_FROM_EMAIL;
 	const contactToEmail = platform?.env?.CONTACT_TO_EMAIL ?? env.CONTACT_TO_EMAIL;
-	const contactFromName = platform?.env?.CONTACT_FROM_NAME ?? env.CONTACT_FROM_NAME ?? 'Portfolio Contact Form';
+	const contactFromName =
+		platform?.env?.CONTACT_FROM_NAME ?? env.CONTACT_FROM_NAME ?? 'Portfolio Contact Form';
 
 	if (!brevoApiKey || !contactFromEmail || !contactToEmail) {
-		console.error('Contact form is missing required email environment variables.');
+		logContactError('Contact form missing required email configuration.', {
+			requestId,
+			hasBrevoApiKey: Boolean(brevoApiKey),
+			hasContactFromEmail: Boolean(contactFromEmail),
+			hasContactToEmail: Boolean(contactToEmail)
+		});
 		return json({ success: false, error: 'Email service is not configured.' }, { status: 500 });
 	}
 
-	const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'api-key': brevoApiKey
-		},
-		body: JSON.stringify({
-			sender: {
-				email: contactFromEmail,
-				name: contactFromName
+	let brevoResponse: Response;
+	try {
+		brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'api-key': brevoApiKey
 			},
-			to: [{ email: contactToEmail }],
-			replyTo: {
-				email,
-				name
+			body: JSON.stringify({
+				sender: {
+					email: contactFromEmail,
+					name: contactFromName
+				},
+				to: [{ email: contactToEmail }],
+				replyTo: {
+					email,
+					name
+				},
+				subject: `Portfolio contact form submission from ${name}`,
+				textContent: `From: ${name} <${email}>\n\n${message}`
+			})
+		});
+	} catch (error) {
+		logContactError(
+			'Brevo request failed before receiving a response.',
+			{
+				requestId,
+				contactToDomain: contactToEmail.split('@')[1] ?? null
 			},
-			subject: `Portfolio contact form submission from ${name}`,
-			textContent: `From: ${name} <${email}>\n\n${message}`
-		})
-	});
+			error
+		);
+		return json(
+			{ success: false, error: 'Failed to send message. Please try again.' },
+			{ status: 502 }
+		);
+	}
 
 	if (!brevoResponse.ok) {
 		const responseBody = await brevoResponse.text();
-		console.error('Brevo email send failed:', brevoResponse.status, responseBody);
-		return json({ success: false, error: 'Failed to send message. Please try again.' }, { status: 502 });
+		logContactError('Brevo email send failed.', {
+			requestId,
+			status: brevoResponse.status,
+			responsePreview: responseBody.slice(0, 400)
+		});
+		return json(
+			{ success: false, error: 'Failed to send message. Please try again.' },
+			{ status: 502 }
+		);
 	}
 
 	return json({ success: true });
