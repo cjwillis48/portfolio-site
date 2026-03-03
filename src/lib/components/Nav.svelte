@@ -29,7 +29,7 @@
 						target={href.startsWith('http') ? '_blank' : undefined}
 						rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
 						class="px-3 py-2 rounded-md text-sm font-medium transition-colors
-						{$page.url.pathname === href
+						{$page?.url?.pathname === href
 							? 'text-indigo-600 bg-indigo-50 dark:text-indigo-300 dark:bg-indigo-500/10'
 							: 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-800'}"
 					>
@@ -67,7 +67,7 @@
 							rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
 							onclick={() => (menuOpen = false)}
 							class="block px-3 py-2 rounded-md text-sm font-medium transition-colors
-							{$page.url.pathname === href
+							{$page?.url?.pathname === href
 								? 'text-indigo-600 bg-indigo-50 dark:text-indigo-300 dark:bg-indigo-500/10'
 								: 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-800'}"
 						>
