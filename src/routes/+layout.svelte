@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import '../app.css';
 	import Nav from '$lib/components/Nav.svelte';
 	import Footer from '$lib/components/Footer.svelte';
@@ -15,5 +16,7 @@
 		{@render children()}
 	</main>
 	<Footer />
-	<Chat />
+	{#if browser}
+		<Chat />
+	{/if}
 </div>
