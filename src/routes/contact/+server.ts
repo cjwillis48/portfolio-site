@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import { createRequestId } from '$lib/utils/request';
 import type { RequestHandler } from './$types';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -7,14 +8,6 @@ const MAX_NAME_LENGTH = 120;
 const MAX_EMAIL_LENGTH = 254;
 const MAX_MESSAGE_LENGTH = 5000;
 const MIN_FORM_FILL_MS = 3000;
-
-function createRequestId(): string {
-	try {
-		return crypto.randomUUID();
-	} catch {
-		return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-	}
-}
 
 function logContactError(message: string, context: Record<string, unknown>, error?: unknown): void {
 	if (error) {

@@ -1,12 +1,5 @@
 import type { HandleServerError } from '@sveltejs/kit';
-
-function createRequestId(): string {
-	try {
-		return crypto.randomUUID();
-	} catch {
-		return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-	}
-}
+import { createRequestId } from '$lib/utils/request';
 
 export const handleError: HandleServerError = ({ error, event, status, message }) => {
 	const requestId = createRequestId();

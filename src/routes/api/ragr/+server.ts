@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import { chatbotConfig } from '$lib/data/chatbot';
+import { createRequestId } from '$lib/utils/request';
 import type { RequestHandler } from './$types';
 
 const MIN_QUESTION_LENGTH = 1;
@@ -21,14 +22,6 @@ interface PublicModelInfo {
 interface ChatHistoryMessage {
 	role: 'user' | 'assistant';
 	content: string;
-}
-
-function createRequestId(): string {
-	try {
-		return crypto.randomUUID();
-	} catch {
-		return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-	}
 }
 
 function logRagrError(message: string, context: Record<string, unknown>, error?: unknown): void {

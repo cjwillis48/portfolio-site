@@ -49,6 +49,7 @@
 			class="md:hidden p-2 rounded-md text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors dark:text-slate-300 dark:hover:text-slate-100 dark:hover:bg-slate-800"
 			onclick={() => (menuOpen = !menuOpen)}
 			aria-label="Toggle menu"
+			aria-expanded={menuOpen}
 		>
 			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				{#if menuOpen}

@@ -71,6 +71,7 @@
 					id="name"
 					type="text"
 					bind:value={name}
+					maxlength="120"
 					required
 					placeholder="Your name"
 					class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
@@ -83,6 +84,7 @@
 					id="email"
 					type="email"
 					bind:value={email}
+					maxlength="254"
 					required
 					placeholder="you@example.com"
 					class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
@@ -96,6 +98,7 @@
 					bind:value={message}
 					required
 					rows="6"
+					maxlength="5000"
 					placeholder="Tell me about your project or what you're looking for..."
 					class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
 				></textarea>
