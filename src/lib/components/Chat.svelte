@@ -22,6 +22,10 @@
 		error: string;
 	}
 
+interface ChatErrorResponsePayload {
+	error?: string;
+}
+
 	interface ModelInfoPayload {
 		name?: string;
 		slug?: string;
@@ -263,6 +267,10 @@
 			return 'Unanswered';
 		}
 
+		if (status === 'error') {
+			return 'Error';
+		}
+
 		return status.replace(/_/g, ' ');
 	}
 
@@ -273,6 +281,10 @@
 
 		if (status === 'unanswered') {
 			return "This model couldn't confidently answer that from its current knowledge. Try rephrasing, or ask about Charlie's projects and experience.";
+		}
+
+		if (status === 'error') {
+			return 'Something went wrong while generating a response. Please try again in a moment.';
 		}
 
 		return `Response status: ${getStatusLabel(status)}.`;
@@ -287,6 +299,10 @@
 			return 'bg-sky-50 text-sky-900 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:border-sky-500/30';
 		}
 
+		if (status === 'error') {
+			return 'bg-rose-50 text-rose-900 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-200 dark:border-rose-500/30';
+		}
+
 		return 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100';
 	}
 
@@ -299,6 +315,10 @@
 			return 'border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-400/40 dark:bg-sky-400/20 dark:text-sky-100';
 		}
 
+		if (status === 'error') {
+			return 'border-rose-300 bg-rose-100 text-rose-900 dark:border-rose-400/40 dark:bg-rose-400/20 dark:text-rose-100';
+		}
+
 		return 'border-slate-300 bg-slate-100 text-slate-900 dark:border-slate-500/40 dark:bg-slate-500/20 dark:text-slate-100';
 	}
 
@@ -309,6 +329,10 @@
 
 		if (status === 'unanswered') {
 			return 'text-sky-800 dark:text-sky-200/90';
+		}
+
+		if (status === 'error') {
+			return 'text-rose-800 dark:text-rose-200/90';
 		}
 
 		return 'text-slate-700 dark:text-slate-300';
@@ -399,7 +423,7 @@
 				const fallback = 'I hit an issue reaching the chat service. Please try again.';
 				let parsedError = fallback;
 				try {
-					const body = (await response.json()) as { error?: string };
+					const body = (await response.json()) as ChatErrorResponsePayload;
 					if (typeof body.error === 'string' && body.error.trim()) {
 						parsedError = body.error;
 					}
@@ -515,7 +539,7 @@
 			updateAssistantMessage(assistantMessageId, (assistant) => ({
 				...assistant,
 				content: assistant.content || message,
-				status: 'unanswered',
+				status: 'error',
 				isStreaming: false
 			}));
 		} finally {
@@ -547,7 +571,10 @@
 </script>
 
 {#if isChatAvailable}
-	<div class="fixed right-4 bottom-4 z-40">
+	<div
+		in:fly={{ x: 96, duration: 320, opacity: 0 }}
+		class="fixed right-4 bottom-4 z-40"
+	>
 		{#if isOpen}
 			<section
 				class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden dark:bg-slate-900 dark:border-slate-700"
@@ -699,7 +726,7 @@
 			<div class="flex flex-col items-end gap-2">
 				{#if showLauncherHint}
 					<div
-						in:fly={{ y: 8, duration: 220 }}
+						in:fly={{ x: 56, duration: 260, opacity: 0 }}
 						out:fade={{ duration: 300 }}
 						class="rounded-xl bg-white/95 border border-slate-200 px-3 py-2 text-xs text-slate-700 shadow-md dark:bg-slate-900/95 dark:border-slate-700 dark:text-slate-200"
 					>
@@ -707,7 +734,8 @@
 					</div>
 				{/if}
 				<button
-					class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-500 transition-colors"
+					in:fly={{ x: 72, duration: 300, opacity: 0 }}
+					class="inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg hover:bg-indigo-500 transition-all duration-200 hover:scale-[1.02] active:scale-95"
 					onclick={() => {
 						isOpen = true;
 						showLauncherHint = false;

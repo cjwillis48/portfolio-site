@@ -24,6 +24,8 @@ interface ChatHistoryMessage {
 	content: string;
 }
 
+type ErrorSource = 'proxy' | 'upstream';
+
 function logRagrError(message: string, context: Record<string, unknown>, error?: unknown): void {
 	if (error) {
 		console.error(`[ragr] ${message}`, context, error);
@@ -31,6 +33,91 @@ function logRagrError(message: string, context: Record<string, unknown>, error?:
 	}
 
 	console.error(`[ragr] ${message}`, context);
+}
+
+function isDebugEnabled(platform?: App.Platform): boolean {
+	const platformEnv = platform?.env as Record<string, unknown> | undefined;
+	const raw = readString(platformEnv?.RAGR_DEBUG ?? env.RAGR_DEBUG).toLowerCase();
+	return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+function logRagrInfo(
+	platform: App.Platform | undefined,
+	message: string,
+	context: Record<string, unknown>
+): void {
+	if (!isDebugEnabled(platform)) {
+		return;
+	}
+	console.log(`[ragr] ${message}`, context);
+}
+
+async function logSseEventsFromStream(
+	platform: App.Platform | undefined,
+	requestId: string,
+	stream: ReadableStream<Uint8Array>
+): Promise<void> {
+	if (!isDebugEnabled(platform)) {
+		return;
+	}
+
+	const reader = stream.getReader();
+	const decoder = new TextDecoder();
+	let buffer = '';
+	let eventCount = 0;
+
+	try {
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) {
+				if (buffer.trim().length > 0) {
+					eventCount += 1;
+				}
+				logRagrInfo(platform, 'Upstream SSE stream completed.', {
+					requestId,
+					eventCount
+				});
+				break;
+			}
+
+			buffer += decoder.decode(value, { stream: true });
+			const blocks = buffer.split('\n\n');
+			buffer = blocks.pop() ?? '';
+
+			for (const block of blocks) {
+				const trimmed = block.trim();
+				if (!trimmed) {
+					continue;
+				}
+
+				eventCount += 1;
+				let eventType = 'message';
+				const dataLines: string[] = [];
+
+				for (const line of trimmed.split('\n')) {
+					if (line.startsWith('event:')) {
+						eventType = line.slice(6).trim() || 'message';
+						continue;
+					}
+					if (line.startsWith('data:')) {
+						dataLines.push(line.slice(5).trim());
+					}
+				}
+
+				const dataPreview = dataLines.join('\n').slice(0, 200);
+				logRagrInfo(platform, 'Received upstream SSE event.', {
+					requestId,
+					eventType,
+					eventCount,
+					dataPreview
+				});
+			}
+		}
+	} catch (error) {
+		logRagrError('Failed while logging upstream SSE events.', { requestId, eventCount }, error);
+	} finally {
+		reader.releaseLock();
+	}
 }
 
 function readString(value: unknown): string {
@@ -62,6 +149,31 @@ function mapUpstreamError(status: number): { status: number; error: string } {
 	}
 
 	return { status: 502, error: 'Unable to reach the chat service right now. Please try again.' };
+}
+
+function buildTraceHeaders(requestId: string, source?: ErrorSource): Headers {
+	const headers = new Headers({ 'x-request-id': requestId });
+	if (source) {
+		headers.set('x-error-source', source);
+	}
+	return headers;
+}
+
+function errorJsonResponse(
+	requestId: string,
+	source: ErrorSource,
+	status: number,
+	error: string
+): Response {
+	return json(
+		{
+			success: false,
+			error,
+			requestId,
+			source
+		},
+		{ status, headers: buildTraceHeaders(requestId, source) }
+	);
 }
 
 function readChatConfig(platform?: App.Platform): { baseUrl: string; slug: string } {
@@ -122,6 +234,7 @@ function readHistory(value: unknown): ChatHistoryMessage[] {
 export const GET: RequestHandler = async ({ platform }) => {
 	const requestId = createRequestId();
 	const { baseUrl, slug } = readChatConfig(platform);
+	logRagrInfo(platform, 'GET /api/ragr received.', { requestId, slug, baseUrlConfigured: Boolean(baseUrl) });
 
 	if (!baseUrl || !isValidSlug(slug)) {
 		logRagrError('Invalid chat config for model info lookup.', {
@@ -129,13 +242,17 @@ export const GET: RequestHandler = async ({ platform }) => {
 			baseUrlConfigured: Boolean(baseUrl),
 			slug
 		});
-		return json({ available: false }, { status: 200 });
+		return json({ available: false }, { status: 200, headers: buildTraceHeaders(requestId, 'proxy') });
 	}
 
-	const infoUrl = new URL(`/models/${encodeURIComponent(slug)}/info`, baseUrl).toString();
-
 	try {
+		const infoUrl = new URL(`/models/${encodeURIComponent(slug)}/info`, baseUrl).toString();
 		const infoResponse = await fetch(infoUrl, { method: 'GET' });
+		logRagrInfo(platform, 'Forwarded model info request to upstream.', {
+			requestId,
+			infoUrl,
+			status: infoResponse.status
+		});
 		if (!infoResponse.ok) {
 			const responseBody = await infoResponse.text();
 			logRagrError('Model info endpoint returned non-OK status.', {
@@ -144,146 +261,176 @@ export const GET: RequestHandler = async ({ platform }) => {
 				status: infoResponse.status,
 				responsePreview: responseBody.slice(0, 400)
 			});
-			return json({ available: false }, { status: 200 });
+			return json({ available: false }, { status: 200, headers: buildTraceHeaders(requestId, 'upstream') });
 		}
 
 		const infoPayload = (await infoResponse.json()) as Record<string, unknown>;
 		if (infoPayload.accepting_requests !== true) {
-			return json({ available: false }, { status: 200 });
+			logRagrInfo(platform, 'Model is not accepting requests.', { requestId, slug });
+			return json({ available: false }, { status: 200, headers: buildTraceHeaders(requestId, 'upstream') });
 		}
 
 		const model = readModelInfo(infoPayload, slug);
-		return json({ available: true, model }, { status: 200 });
+		return json({ available: true, model }, { status: 200, headers: buildTraceHeaders(requestId, 'upstream') });
 	} catch (error) {
-		logRagrError('Model info fetch failed.', { requestId, infoUrl }, error);
-		return json({ available: false }, { status: 200 });
+		logRagrError('Model info fetch failed.', { requestId, baseUrl, slug }, error);
+		return json({ available: false }, { status: 200, headers: buildTraceHeaders(requestId, 'proxy') });
 	}
 };
 
 export const POST: RequestHandler = async ({ request, platform }) => {
 	const requestId = createRequestId();
-	let payload: unknown;
-
+	logRagrInfo(platform, 'POST /api/ragr received.', {
+		requestId,
+		contentType: request.headers.get('content-type') ?? 'unknown'
+	});
 	try {
-		payload = await request.json();
-	} catch (error) {
-		logRagrError(
-			'Failed to parse chat JSON payload.',
-			{
-				requestId,
-				contentType: request.headers.get('content-type') ?? 'unknown'
-			},
-			error
-		);
-		return json({ success: false, error: 'Invalid JSON payload.' }, { status: 400 });
-	}
+		let payload: unknown;
+		try {
+			payload = await request.json();
+		} catch (error) {
+			logRagrError(
+				'Failed to parse chat JSON payload.',
+				{
+					requestId,
+					contentType: request.headers.get('content-type') ?? 'unknown'
+				},
+				error
+			);
+			return errorJsonResponse(requestId, 'proxy', 400, 'Invalid JSON payload.');
+		}
 
-	if (!payload || typeof payload !== 'object') {
-		logRagrError('Invalid chat payload shape.', { requestId, payloadType: typeof payload });
-		return json({ success: false, error: 'Invalid request payload.' }, { status: 400 });
-	}
+		if (!payload || typeof payload !== 'object') {
+			logRagrError('Invalid chat payload shape.', { requestId, payloadType: typeof payload });
+			return errorJsonResponse(requestId, 'proxy', 400, 'Invalid request payload.');
+		}
 
-	const record = payload as Record<string, unknown>;
-	const question = readString(record.question);
-	const history = readHistory(record.history);
-
-	if (!isValidQuestion(question)) {
-		logRagrError('Invalid question length.', {
+		const record = payload as Record<string, unknown>;
+		const question = readString(record.question);
+		const history = readHistory(record.history);
+		logRagrInfo(platform, 'Validated incoming chat payload.', {
 			requestId,
 			questionLength: question.length,
-			min: MIN_QUESTION_LENGTH,
-			max: MAX_QUESTION_LENGTH
+			historyCount: history.length
 		});
-		return json(
-			{
-				success: false,
-				error: `Question must be between ${MIN_QUESTION_LENGTH} and ${MAX_QUESTION_LENGTH} characters.`
-			},
-			{ status: 400 }
-		);
-	}
 
-	const { baseUrl, slug } = readChatConfig(platform);
+		if (!isValidQuestion(question)) {
+			logRagrError('Invalid question length.', {
+				requestId,
+				questionLength: question.length,
+				min: MIN_QUESTION_LENGTH,
+				max: MAX_QUESTION_LENGTH
+			});
+			return errorJsonResponse(
+				requestId,
+				'proxy',
+				400,
+				`Question must be between ${MIN_QUESTION_LENGTH} and ${MAX_QUESTION_LENGTH} characters.`
+			);
+		}
 
-	if (!baseUrl) {
-		logRagrError('Missing RAGR_BASE_URL configuration.', { requestId, slug });
-		return json({ success: false, error: 'Chat service is not configured.' }, { status: 500 });
-	}
+		const { baseUrl, slug } = readChatConfig(platform);
 
-	if (!isValidSlug(slug)) {
-		logRagrError('Invalid model slug configuration.', { requestId, slug });
-		return json(
-			{ success: false, error: 'Chat service has invalid model settings.' },
-			{ status: 500 }
-		);
-	}
+		if (!baseUrl) {
+			logRagrError('Missing RAGR_BASE_URL configuration.', { requestId, slug });
+			return errorJsonResponse(requestId, 'proxy', 500, 'Chat service is not configured.');
+		}
 
-	const upstreamUrl = new URL(`/models/${encodeURIComponent(slug)}/chat`, baseUrl).toString();
-	let upstreamResponse: Response;
+		if (!isValidSlug(slug)) {
+			logRagrError('Invalid model slug configuration.', { requestId, slug });
+			return errorJsonResponse(requestId, 'proxy', 500, 'Chat service has invalid model settings.');
+		}
 
-	try {
-		upstreamResponse = await fetch(upstreamUrl, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				question,
-				stream: true,
-				history
-			})
-		});
-	} catch (error) {
-		logRagrError(
-			'Chat upstream request failed.',
-			{
+		const upstreamUrl = new URL(`/models/${encodeURIComponent(slug)}/chat`, baseUrl).toString();
+		let upstreamResponse: Response;
+
+		try {
+			upstreamResponse = await fetch(upstreamUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					question,
+					stream: true,
+					history
+				})
+			});
+			logRagrInfo(platform, 'Forwarded chat request to upstream.', {
+				requestId,
+				upstreamUrl,
+				status: upstreamResponse.status
+			});
+		} catch (error) {
+			logRagrError(
+				'Chat upstream request failed.',
+				{
+					requestId,
+					upstreamUrl,
+					slug,
+					questionLength: question.length,
+					historyCount: history.length
+				},
+				error
+			);
+			return errorJsonResponse(
+				requestId,
+				'upstream',
+				502,
+				'Unable to connect to the chat service. Please try again.'
+			);
+		}
+
+		if (!upstreamResponse.ok) {
+			const mapped = mapUpstreamError(upstreamResponse.status);
+			const responseBody = await upstreamResponse.text();
+			logRagrError('Chat upstream returned non-OK status.', {
 				requestId,
 				upstreamUrl,
 				slug,
+				status: upstreamResponse.status,
 				questionLength: question.length,
-				historyCount: history.length
-			},
-			error
-		);
-		return json(
-			{ success: false, error: 'Unable to connect to the chat service. Please try again.' },
-			{ status: 502 }
-		);
-	}
+				historyCount: history.length,
+				responsePreview: responseBody.slice(0, 400)
+			});
+			return errorJsonResponse(requestId, 'upstream', mapped.status, mapped.error);
+		}
 
-	if (!upstreamResponse.ok) {
-		const mapped = mapUpstreamError(upstreamResponse.status);
-		const responseBody = await upstreamResponse.text();
-		logRagrError('Chat upstream returned non-OK status.', {
+		if (!upstreamResponse.body) {
+			logRagrError('Chat upstream returned empty response body.', {
+				requestId,
+				upstreamUrl,
+				slug
+			});
+			return errorJsonResponse(requestId, 'upstream', 502, 'Chat service did not return a stream.');
+		}
+		logRagrInfo(platform, 'Streaming upstream response to client.', {
 			requestId,
-			upstreamUrl,
-			slug,
-			status: upstreamResponse.status,
-			questionLength: question.length,
-			historyCount: history.length,
-			responsePreview: responseBody.slice(0, 400)
+			source: 'upstream'
 		});
-		return json({ success: false, error: mapped.error }, { status: mapped.status });
-	}
 
-	if (!upstreamResponse.body) {
-		logRagrError('Chat upstream returned empty response body.', {
-			requestId,
-			upstreamUrl,
-			slug
-		});
-		return json(
-			{ success: false, error: 'Chat service did not return a stream.' },
-			{ status: 502 }
-		);
-	}
-
-	return new Response(upstreamResponse.body, {
-		status: 200,
-		headers: {
+		const responseHeaders = new Headers({
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache',
 			Connection: 'keep-alive'
-		}
-	});
+		});
+		responseHeaders.set('x-request-id', requestId);
+		responseHeaders.set('x-error-source', 'upstream');
+
+		const [clientStream, logStream] = upstreamResponse.body.tee();
+		void logSseEventsFromStream(platform, requestId, logStream);
+
+		return new Response(clientStream, {
+			status: 200,
+			headers: responseHeaders
+		});
+	} catch (error) {
+		logRagrError('Unhandled proxy error while processing chat request.', { requestId }, error);
+		return errorJsonResponse(
+			requestId,
+			'proxy',
+			500,
+			'Unexpected error in chat proxy. Please try again.'
+		);
+	}
 };
