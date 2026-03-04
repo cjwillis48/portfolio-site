@@ -247,7 +247,12 @@ export const GET: RequestHandler = async ({ platform }) => {
 
 	try {
 		const infoUrl = new URL(`/models/${encodeURIComponent(slug)}/info`, baseUrl).toString();
-		const infoResponse = await fetch(infoUrl, { method: 'GET' });
+		const infoResponse = await fetch(infoUrl, {
+			method: 'GET',
+			headers: {
+				'x-request-id': requestId
+			}
+		});
 		logRagrInfo(platform, 'Forwarded model info request to upstream.', {
 			requestId,
 			infoUrl,
@@ -348,7 +353,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			upstreamResponse = await fetch(upstreamUrl, {
 				method: 'POST',
 				headers: {
-					'Content-Type': 'application/json'
+					'Content-Type': 'application/json',
+					'x-request-id': requestId
 				},
 				body: JSON.stringify({
 					question,
