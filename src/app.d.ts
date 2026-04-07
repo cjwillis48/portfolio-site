@@ -12,7 +12,6 @@ declare global {
 				CONTACT_FROM_EMAIL: string;
 				CONTACT_TO_EMAIL: string;
 				CONTACT_FROM_NAME?: string;
-				RAGR_BASE_URL: string;
 			};
 		}
 	}
