@@ -2,6 +2,23 @@ import type { Project } from '$lib/types';
 
 export const projects: Project[] = [
 	{
+		title: 'RAGr (Multi-Tenant RAG as a Service Platform)',
+		description:
+			'Built a self-serve RAG platform that lets non-technical operators create isolated models with dynamic knowledge bases. Ingests content via crawl or file upload, and embed a branded chat widget on any site with a single script tag. Each tenant gets its own system prompt, hybrid search index (vector + keyword with RRF), per-model CORS, encrypted BYOK secrets, and budget tracking. Architected as a FastAPI control plane with a separate ingestion worker, async job queue with multi-worker safe claiming, and a SvelteKit admin console plus standalone embeddable widget bundle. Ships continuously to Kubernetes via GitHub Actions and Argo CD.',
+		tags: [
+			'Python',
+			'FastAPI',
+			'PostgreSQL',
+			'pgvector',
+			'Anthropic Claude',
+			'Voyage AI',
+			'SvelteKit',
+			'Kubernetes',
+			'Argo CD'
+		],
+		year: '2026'
+	},
+	{
 		title: 'Marketing Campaign Support API',
 		description:
 			'Led architecture and technical direction for a suite of operational APIs used by engineering teams to replay campaigns, manage runtime configurations, and control Glue jobs in the marketing delivery pipeline. These tools turned one-off manual operations into self-service capabilities, giving teams faster incident response and reducing reliance on ad hoc scripts.',
