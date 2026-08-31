@@ -14,5 +14,5 @@
 		{@render children()}
 	</main>
 	<Footer />
-	<script src="https://ragr.charliewillis.com/chat/chatlie/loader.js"></script>
+	<script src="https://ragr.dev/chat/chatlie/loader.js"></script>
 </div>
